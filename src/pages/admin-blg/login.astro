@@ -1,0 +1,79 @@
+---
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../lib/auth";
+import "../../styles/global.css";
+
+export const prerender = false;
+
+const existingToken = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(existingToken);
+
+if (user) {
+	return Astro.redirect("/admin-blg");
+}
+
+const url = new URL(Astro.request.url);
+const error = url.searchParams.get("error");
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Login Admin - Blog</title>
+	</head>
+	<body>
+		<main class="admin-layout">
+			<section class="admin-card admin-card--narrow">
+				<h1 class="admin-title">Acesso ao painel</h1>
+				<p class="admin-subtitle">
+					Faça login para gerenciar os artigos do blog.
+				</p>
+
+				{
+					error && (
+						<p class="admin-alert">
+							{error === "invalid"
+								? "Credenciais inválidas."
+								: error === "missing"
+									? "Informe e-mail e senha."
+									: "Ocorreu um erro ao fazer login."}
+						</p>
+					)
+				}
+
+				<form
+					method="post"
+					action="/api/admin/login"
+					class="admin-form"
+				>
+					<label class="admin-field">
+						<span>E-mail</span>
+						<input
+							type="email"
+							name="email"
+							required
+							placeholder="admin@exemplo.com"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Senha</span>
+						<input
+							type="password"
+							name="password"
+							required
+							minlength={6}
+						/>
+					</label>
+
+					<button
+						type="submit"
+						class="admin-button admin-button--primary"
+					>
+						Entrar
+					</button>
+				</form>
+			</section>
+		</main>
+	</body>
+</html>

@@ -1,0 +1,329 @@
+---
+import AdminHeader from "../../components/AdminHeader.astro";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../lib/auth";
+import { getStructuredDataSettings } from "../../lib/models/structured-data-settings";
+import "../../styles/global.css";
+
+export const prerender = false;
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+
+if (!user) {
+	return Astro.redirect("/admin-blg/login");
+}
+
+const structured = await getStructuredDataSettings();
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Admin - Dados estruturados</title>
+	</head>
+	<body>
+		<AdminHeader />
+		<main class="admin-layout">
+			<section class="admin-card">
+				<header class="admin-card__header">
+					<div>
+						<h1 class="admin-title">Dados estruturados (JSON-LD)</h1>
+						<p class="admin-subtitle">
+							Configure as principais informações usadas no JSON-LD da
+							página inicial.
+						</p>
+					</div>
+				</header>
+
+				<div
+					id="structured-alert"
+					class="admin-alert"
+					style="display: none;"
+				>
+				</div>
+
+				<form id="structured-form" class="admin-form">
+					<h2 class="admin-title" style="font-size: 1.1rem; margin-bottom: 4px;">
+						Informações gerais
+					</h2>
+					<p class="admin-subtitle" style="margin-top: 0;">
+						Use URLs completas com https:// quando necessário.
+					</p>
+
+					<label class="admin-field">
+						<span>URL principal do site</span>
+						<input
+							type="url"
+							name="siteUrl"
+							value={structured.siteUrl}
+							placeholder="https://seusite.com"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Nome da organização</span>
+						<input
+							type="text"
+							name="organizationName"
+							value={structured.organizationName}
+							placeholder="Ex.: Sua Marca Ltda."
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Nome do site</span>
+						<input
+							type="text"
+							name="websiteName"
+							value={structured.websiteName}
+							placeholder="Ex.: Blog Sua Marca"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Nome alternativo (alternateName)</span>
+						<input
+							type="text"
+							name="websiteAlternateName"
+							value={structured.websiteAlternateName}
+							placeholder="Ex.: Conteúdos sobre marketplaces"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>E-mail de contato</span>
+						<input
+							type="email"
+							name="contactEmail"
+							value={structured.contactEmail}
+							placeholder="contato@seusite.com"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Telefone</span>
+						<input
+							type="text"
+							name="telephone"
+							value={structured.telephone}
+							placeholder="+55 11 99999-9999"
+						/>
+					</label>
+
+					<h2 class="admin-title" style="font-size: 1.1rem; margin-top: 12px;">
+						Endereço
+					</h2>
+
+					<label class="admin-field">
+						<span>País</span>
+						<input
+							type="text"
+							name="addressCountry"
+							value={structured.addressCountry}
+							placeholder="Brasil"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Cidade</span>
+						<input
+							type="text"
+							name="addressLocality"
+							value={structured.addressLocality}
+							placeholder="São Paulo"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Estado/Região</span>
+						<input
+							type="text"
+							name="addressRegion"
+							value={structured.addressRegion}
+							placeholder="SP"
+						/>
+					</label>
+
+					<h2 class="admin-title" style="font-size: 1.1rem; margin-top: 12px;">
+						Logo e imagem
+					</h2>
+
+					<label class="admin-field">
+						<span>URL da logo/imagem principal</span>
+						<input
+							type="url"
+							name="logoUrl"
+							value={structured.logoUrl}
+							placeholder="https://seusite.com/logo.png"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Legenda da imagem (caption)</span>
+						<input
+							type="text"
+							name="logoCaption"
+							value={structured.logoCaption}
+							placeholder="Nome da sua marca ou imagem"
+						/>
+					</label>
+
+					<h2 class="admin-title" style="font-size: 1.1rem; margin-top: 12px;">
+						Sobre a página
+					</h2>
+
+					<label class="admin-field">
+						<span>Nome da página (AboutPage)</span>
+						<input
+							type="text"
+							name="aboutPageName"
+							value={structured.aboutPageName}
+							placeholder="Título que representa a página"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Descrição</span>
+						<textarea
+							name="description"
+							rows={4}
+							placeholder="Descrição usada nos dados estruturados"
+						>{structured.description}</textarea
+						>
+					</label>
+
+					<h2 class="admin-title" style="font-size: 1.1rem; margin-top: 12px;">
+						Outros detalhes
+					</h2>
+
+					<label class="admin-field">
+						<span>Ano de fundação</span>
+						<input
+							type="text"
+							name="foundingDate"
+							value={structured.foundingDate}
+							placeholder="Ex.: 2022"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Faixa de preço (priceRange)</span>
+						<input
+							type="text"
+							name="priceRange"
+							value={structured.priceRange}
+							placeholder="$, $$, $$$"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Slogan</span>
+						<input
+							type="text"
+							name="slogan"
+							value={structured.slogan}
+							placeholder="Frase principal da marca"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Nota média (ratingValue)</span>
+						<input
+							type="text"
+							name="aggregateRatingValue"
+							value={structured.aggregateRatingValue}
+							placeholder="Ex.: 4.8"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Quantidade de reviews (reviewCount)</span>
+						<input
+							type="text"
+							name="aggregateRatingCount"
+							value={structured.aggregateRatingCount}
+							placeholder="Ex.: 89"
+						/>
+					</label>
+
+					<div class="admin-form__actions">
+						<button
+							type="submit"
+							class="admin-button admin-button--primary"
+						>
+							Salvar dados estruturados
+						</button>
+					</div>
+				</form>
+			</section>
+		</main>
+
+		<script>
+			const form = document.getElementById(
+				"structured-form",
+			) as HTMLFormElement | null;
+			const alertBox = document.getElementById("structured-alert");
+
+			function showAlert(message: string, isError: boolean) {
+				if (!alertBox) return;
+				alertBox.textContent = message;
+				alertBox.style.display = "block";
+				alertBox.style.background = isError ? "#fee2e2" : "#dcfce7";
+				alertBox.style.color = isError ? "#991b1b" : "#166534";
+			}
+
+			if (form) {
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const formData = new FormData(form);
+
+					const payload = {
+						siteUrl: String(formData.get("siteUrl") || ""),
+						organizationName: String(
+							formData.get("organizationName") || "",
+						),
+						websiteName: String(formData.get("websiteName") || ""),
+						websiteAlternateName: String(
+							formData.get("websiteAlternateName") || "",
+						),
+						contactEmail: String(formData.get("contactEmail") || ""),
+						telephone: String(formData.get("telephone") || ""),
+						addressCountry: String(formData.get("addressCountry") || ""),
+						addressLocality: String(formData.get("addressLocality") || ""),
+						addressRegion: String(formData.get("addressRegion") || ""),
+						logoUrl: String(formData.get("logoUrl") || ""),
+						logoCaption: String(formData.get("logoCaption") || ""),
+						aboutPageName: String(formData.get("aboutPageName") || ""),
+						description: String(formData.get("description") || ""),
+						foundingDate: String(formData.get("foundingDate") || ""),
+						priceRange: String(formData.get("priceRange") || ""),
+						slogan: String(formData.get("slogan") || ""),
+						aggregateRatingValue: String(
+							formData.get("aggregateRatingValue") || "",
+						),
+						aggregateRatingCount: String(
+							formData.get("aggregateRatingCount") || "",
+						),
+					};
+
+					const res = await fetch("/api/admin/structured-data", {
+						method: "PUT",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(payload),
+					});
+
+					if (!res.ok) {
+						showAlert("Erro ao salvar dados estruturados.", true);
+						return;
+					}
+
+					showAlert("Dados estruturados salvos com sucesso.", false);
+				});
+			}
+		</script>
+	</body>
+</html>
+

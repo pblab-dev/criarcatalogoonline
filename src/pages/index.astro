@@ -1,0 +1,525 @@
+---
+import {
+	getAllPublishedPosts,
+	getRecommendedPosts,
+	getRecentPosts,
+} from "../lib/blogQueries";
+import BlogFooter from "../components/BlogFooter.astro";
+import { getSiteSettings } from "../lib/models/site-settings";
+import { getCategoriesWithCounts } from "../lib/models/post";
+import { getStructuredDataSettings } from "../lib/models/structured-data-settings";
+
+const blogPosts = await getAllPublishedPosts();
+const recommendedPosts = await getRecommendedPosts();
+const latestPost = (await getRecentPosts(1))[0];
+const categories = await getCategoriesWithCounts();
+const settings = await getSiteSettings();
+const structured = await getStructuredDataSettings();
+const siteTitle = settings.siteTitle || "Blog Alziro Duarte";
+const siteDescription =
+	settings.siteDescription ||
+	"Blog Alziro Duarte - Dicas sobre posicionamento em marketplaces";
+const homeHeaderTitle = settings.homeHeaderTitle || "Blog Alziro Duarte";
+const homeHeaderDescription =
+	settings.homeHeaderDescription ||
+	"Transformamos cada marketplace em uma máquina de crescimento para o seu negócio";
+const primaryColor = settings.primaryColor || "#1D1760";
+const secondaryColor = settings.secondaryColor || "#2563eb";
+---
+
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.png" />
+		<link rel="icon" href="/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={siteDescription} />
+		<meta
+			name="keywords"
+			content="avaliações google, google meu negócio, seo local, reputação online, marketing digital"
+		/>
+		<title>{siteTitle}</title>
+		<!-- Open Graph / Facebook -->
+		<meta property="og:type" content="website" />
+		<meta
+			property="og:url"
+			content="https://alziroduartemarketplace.blog/"
+		/>
+		<meta property="og:title" content={siteTitle} />
+		<meta property="og:description" content={siteDescription} />
+		<meta
+			property="og:image"
+			content="https://alziroduartemarketplace.blog/logo2.png"
+		/>
+		<meta property="og:locale" content="pt_BR" />
+		<meta property="og:site_name" content="Alziro Duarte" />
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta
+			name="twitter:url"
+			content="https://alziroduartemarketplace.blog/"
+		/>
+		<meta name="twitter:title" content={siteTitle} />
+		<meta name="twitter:description" content={siteDescription} />
+		<meta
+			name="twitter:image"
+			content="https://alziroduartemarketplace.blog/logo2.png"
+		/>
+		<link rel="canonical" href="https://alziroduartemarketplace.blog/" />
+		<link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+		<link rel="stylesheet" href="/styles.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap"
+			rel="stylesheet"
+		/>
+		<style
+			is:inline
+			set:html={`:root { --blue-dark: ${primaryColor}; --blue-medium: ${secondaryColor}; }`}
+		></style>
+		<style>
+			* {
+				font-family: "Josefin Sans", sans-serif;
+				font-optical-sizing: auto;
+				font-style: normal;
+			}
+			.navbar {
+				position: relative;
+				background: var(--blue-dark);
+				padding: 15px 0;
+			}
+			.blog-follow-button {
+				margin-top: 20px;
+				text-align: center;
+			}
+			.blog-follow-google {
+				display: inline-block;
+				padding: 12px 24px;
+				background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+				color: white !important;
+				text-decoration: none;
+				border-radius: 8px;
+				font-weight: 600;
+				font-size: 15px;
+				transition: all 0.3s ease;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+			}
+			.blog-follow-google:hover {
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+			}
+			.blog-post-image-link {
+				display: block;
+				width: 100%;
+				overflow: hidden;
+				border-radius: 12px 12px 0 0;
+				margin-bottom: 16px;
+				aspect-ratio: 4 / 3;
+			}
+			.blog-post-image {
+				display: block;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				transition: transform 0.3s ease;
+			}
+			.blog-post-image-link:hover .blog-post-image {
+				transform: scale(1.05);
+			}
+			.blog-post-card {
+				overflow: hidden;
+			}
+		</style>
+		{
+			(() => {
+				const origin = Astro.url.origin ?? structured.siteUrl;
+				const siteUrl = structured.siteUrl || origin;
+				const logoUrl = structured.logoUrl || `${siteUrl}/logo2.png`;
+				const orgId = `${siteUrl}/#organization`;
+				const logoId = `${siteUrl}/#logo`;
+				const websiteId = `${siteUrl}/#website`;
+				const imageId = logoUrl;
+				const webpageId = `${siteUrl}#webpage`;
+				const organizationName =
+					structured.organizationName?.trim() ||
+					structured.websiteName?.trim() ||
+					siteTitle;
+
+				const graph = {
+					"@context": "https://schema.org",
+					"@graph": [
+						{
+							"@type": ["LocalBusiness", "Organization"],
+							"@id": orgId,
+							name: organizationName,
+							url: siteUrl,
+							email: structured.contactEmail,
+							telephone: structured.telephone,
+							description: structured.description,
+							slogan: structured.slogan,
+							priceRange: structured.priceRange,
+							address: {
+								"@type": "PostalAddress",
+								addressCountry: structured.addressCountry,
+								addressLocality: structured.addressLocality,
+								addressRegion: structured.addressRegion,
+							},
+							aggregateRating: {
+								"@type": "AggregateRating",
+								ratingValue: structured.aggregateRatingValue,
+								reviewCount: structured.aggregateRatingCount,
+							},
+							logo: {
+								"@type": "ImageObject",
+								"@id": logoId,
+								url: logoUrl,
+								contentUrl: logoUrl,
+								caption: structured.logoCaption,
+								inLanguage: "pt-BR",
+								width: "565",
+								height: "393",
+							},
+							openingHours: [
+								"Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday 09:00-17:00",
+							],
+							image: {
+								"@id": logoId,
+							},
+						},
+						{
+							"@type": "WebSite",
+							"@id": websiteId,
+							url: siteUrl,
+							name: structured.websiteName,
+							alternateName: structured.websiteAlternateName,
+							publisher: {
+								"@id": orgId,
+							},
+							inLanguage: "pt-BR",
+							potentialAction: {
+								"@type": "SearchAction",
+								target: `${siteUrl}/?s={search_term_string}`,
+								"query-input":
+									"required name=search_term_string",
+							},
+						},
+						{
+							"@type": "ImageObject",
+							"@id": imageId,
+							url: logoUrl,
+							width: "565",
+							height: "393",
+							caption: structured.logoCaption,
+							inLanguage: "pt-BR",
+						},
+						{
+							"@type": "AboutPage",
+							"@id": webpageId,
+							url: siteUrl,
+							name: structured.aboutPageName,
+							about: {
+								"@id": orgId,
+							},
+							isPartOf: {
+								"@id": websiteId,
+							},
+							primaryImageOfPage: {
+								"@id": imageId,
+							},
+							inLanguage: "pt-BR",
+						},
+					],
+				};
+
+				return (
+					<script
+						type="application/ld+json"
+						class="rank-math-schema-pro"
+						set:html={JSON.stringify(graph)}
+					/>
+				);
+			})()
+		}
+	</head>
+	<body>
+		<!-- Navbar -->
+		<nav class="navbar">
+			<div class="navbar-container">
+				<div class="navbar-logo">
+					<a href="/">
+						<img
+							src="/logo2.png"
+							alt="Alziro Duarte - Comprar Avaliações Google 5 Estrelas"
+						/>
+					</a>
+				</div>
+
+				<button class="navbar-toggle" aria-label="Toggle menu">
+					<span></span>
+					<span></span>
+					<span></span>
+				</button>
+				<ul class="navbar-menu">
+					<li><a class="navbar-link" href="/">Início</a></li>
+					{
+						categories.slice(0, 8).map((item) => (
+							<li>
+								<a
+									class="navbar-link"
+									href={`/categoria/${item.category.slug}`}
+								>
+									{item.category.name}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</nav>
+
+		<!-- Blog Header -->
+		<section class="blog-header">
+			<div class="container">
+				<h1 class="blog-main-title">{homeHeaderTitle}</h1>
+				<p class="blog-subtitle">{homeHeaderDescription}</p>
+			</div>
+		</section>
+
+		<!-- Blog Content -->
+		<section class="blog-content">
+			<div class="container">
+				<div class="blog-layout">
+					<!-- Main Content -->
+					<main class="blog-main">
+						<!-- Search -->
+						<div class="blog-search">
+							<input
+								type="text"
+								id="blog-search-input"
+								placeholder="Buscar artigos..."
+								class="blog-search-input"
+							/>
+							<button
+								class="blog-search-button"
+								aria-label="Buscar"
+							>
+								<svg
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"></path>
+								</svg>
+							</button>
+						</div>
+
+						<!-- Posts List -->
+						<div class="blog-posts" id="blog-posts">
+							{
+								blogPosts.map((post) => {
+									const postImageUrl = post.image?.url;
+									return (
+										<article class="blog-post-card">
+											<a
+												href={`/${post.slug}`}
+												class="blog-post-image-link"
+											>
+												<img
+													src={postImageUrl}
+													alt={post.title}
+													class="blog-post-image"
+												/>
+											</a>
+											<div class="blog-post-header">
+												<a
+													class="blog-post-category"
+													href={`/categoria/${post.category?.slug}`}
+												>
+													{post.category?.name}
+												</a>
+												<span class="blog-post-date">
+													{post.publishedAt
+														? new Date(
+																post.publishedAt,
+															).toLocaleDateString(
+																"pt-BR",
+															)
+														: ""}
+												</span>
+											</div>
+											<h2 class="blog-post-title">
+												<a href={`/${post.slug}`}>
+													{post.title}
+												</a>
+											</h2>
+											<p class="blog-post-excerpt">
+												{post.excerpt}
+											</p>
+											<div class="blog-post-footer">
+												<div class="blog-post-meta">
+													<span class="blog-post-author">
+														{post.author.name}
+													</span>
+													<span class="blog-post-read-time">
+														{post.readTime} min de
+														leitura
+													</span>
+												</div>
+												<a
+													href={`/${post.slug}`}
+													class="blog-post-link"
+												>
+													Ler mais →
+												</a>
+											</div>
+											<div class="blog-post-tags">
+												{post.tags.map((tag) => (
+													<a
+														href={`/tag/${tag}`}
+														class="blog-tag"
+													>
+														{tag}
+													</a>
+												))}
+											</div>
+										</article>
+									);
+								})
+							}
+						</div>
+					</main>
+
+					<!-- Sidebar -->
+					<aside class="blog-sidebar">
+						<!-- Recommended Posts -->
+						<div class="blog-sidebar-section">
+							<h3 class="blog-sidebar-title">
+								Artigos Recomendados
+							</h3>
+							<div class="blog-sidebar-posts">
+								{
+									recommendedPosts.map((post) => (
+										<article class="blog-sidebar-post">
+											<a
+												href={`/${post.slug}`}
+												class="blog-sidebar-link"
+											>
+												<h4 class="blog-sidebar-post-title">
+													{post.title}
+												</h4>
+												<p class="blog-sidebar-post-excerpt">
+													{post.excerpt.substring(
+														0,
+														80,
+													)}
+													...
+												</p>
+											</a>
+										</article>
+									))
+								}
+							</div>
+						</div>
+
+						<!-- Latest Posts -->
+						<div class="blog-sidebar-section">
+							<h3 class="blog-sidebar-title">
+								Últimas Postagens
+							</h3>
+							<ul class="blog-sidebar-list">
+								{
+									blogPosts.map((post) => (
+										<li>
+											<a
+												href={`/${post.slug}`}
+												class="blog-sidebar-list-link"
+											>
+												{post.title}
+											</a>
+										</li>
+									))
+								}
+							</ul>
+						</div>
+					</aside>
+				</div>
+			</div>
+		</section>
+
+		<BlogFooter recommendedPosts={recommendedPosts} />
+
+		<script>
+			const navbarToggle = document.querySelector(".navbar-toggle");
+			const navbarMenu = document.querySelector(".navbar-menu");
+
+			if (navbarToggle && navbarMenu) {
+				navbarToggle.addEventListener("click", () => {
+					navbarToggle.classList.toggle("active");
+					navbarMenu.classList.toggle("active");
+				});
+
+				const navbarLinks = document.querySelectorAll(".navbar-link");
+				navbarLinks.forEach((link) => {
+					link.addEventListener("click", () => {
+						navbarToggle.classList.remove("active");
+						navbarMenu.classList.remove("active");
+					});
+				});
+			}
+
+			const searchInput = document.getElementById(
+				"blog-search-input",
+			) as HTMLInputElement | null;
+			const searchButton = document.querySelector(".blog-search-button");
+			const blogPostCards = document.querySelectorAll(".blog-post-card");
+
+			if (searchInput && searchButton) {
+				const performSearch = () => {
+					const searchTerm = searchInput.value.toLowerCase().trim();
+					blogPostCards.forEach((post) => {
+						const postElement = post as HTMLElement;
+						const title =
+							post
+								.querySelector(".blog-post-title")
+								?.textContent?.toLowerCase() || "";
+						const excerpt =
+							post
+								.querySelector(".blog-post-excerpt")
+								?.textContent?.toLowerCase() || "";
+						const tags = Array.from(
+							post.querySelectorAll(".blog-tag"),
+						)
+							.map((tag) => tag.textContent?.toLowerCase())
+							.join(" ");
+
+						if (
+							title.includes(searchTerm) ||
+							excerpt.includes(searchTerm) ||
+							tags.includes(searchTerm)
+						) {
+							postElement.style.display = "block";
+						} else {
+							postElement.style.display = "none";
+						}
+					});
+				};
+
+				searchButton.addEventListener("click", performSearch);
+				searchInput.addEventListener("keypress", (e) => {
+					if (e.key === "Enter") {
+						performSearch();
+					}
+				});
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,34 @@
+<section id="seo-score-panel" class="seo-score" aria-labelledby="seo-score-title">
+	<header class="seo-score__header">
+		<div class="seo-score__header-main">
+			<h2 id="seo-score-title" class="seo-score__title">Pontuação SEO</h2>
+			<div class="seo-score__circle-wrap">
+				<svg class="seo-score__circle" viewBox="0 0 36 36" aria-hidden="true">
+					<path
+						class="seo-score__circle-bg"
+						d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31"
+									/>
+					<path
+						id="seo-score-circle-fill"
+						class="seo-score__circle-fill"
+						stroke-dasharray="0, 100"
+						d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31"
+									/>
+				</svg>
+				<span id="seo-score-value" class="seo-score__value">—</span>
+			</div>
+		</div>
+		<button
+			id="seo-score-toggle"
+			class="seo-score__toggle"
+			type="button"
+			aria-expanded="false"
+			aria-controls="seo-score-list"
+		>
+			Ver detalhes
+		</button>
+	</header>
+	<div class="seo-score__details">
+		<ul id="seo-score-list" class="seo-score__list"></ul>
+	</div>
+</section>

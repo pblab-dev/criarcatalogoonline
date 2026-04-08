@@ -1,0 +1,60 @@
+---
+import AdminHeader from "../../components/AdminHeader.astro";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../lib/auth";
+import "../../styles/global.css";
+
+export const prerender = false;
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+
+if (!user) {
+	return Astro.redirect("/admin-blg/login");
+}
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Admin - Blog</title>
+	</head>
+	<body>
+		<AdminHeader />
+		<main class="admin-layout">
+			<section class="admin-card">
+				<header class="admin-card__header">
+					<div>
+						<h1 class="admin-title">Painel Admin</h1>
+						<p class="admin-subtitle">
+							Olá, {user.name}. Gerencie os artigos e conteúdo do
+							blog.
+						</p>
+					</div>
+				</header>
+
+				<div class="admin-grid">
+					<a href="/admin-blg/posts" class="admin-tile">
+						<h2>Posts</h2>
+						<p>Listar, criar e editar artigos do blog.</p>
+					</a>
+					<a href="/admin-blg/posts/new" class="admin-tile">
+						<h2>Novo post</h2>
+						<p>Criar um novo artigo otimizado para SEO.</p>
+					</a>
+					<a href="/admin-blg/settings" class="admin-tile">
+						<h2>Settings</h2>
+						<p>
+							Configurar título e descrições gerais do site e da
+							home.
+						</p>
+					</a>
+					<a href="/admin-blg/structured-data" class="admin-tile">
+						<h2>Dados estruturados</h2>
+						<p>Gerenciar JSON-LD da página inicial.</p>
+					</a>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>

@@ -1,0 +1,248 @@
+---
+import AdminHeader from "../../components/AdminHeader.astro";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../lib/auth";
+import { getSiteSettings } from "../../lib/models/site-settings";
+import "../../styles/global.css";
+
+export const prerender = false;
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+
+if (!user) {
+	return Astro.redirect("/admin-blg/login");
+}
+
+const settings = await getSiteSettings();
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Admin - Settings</title>
+	</head>
+	<body>
+		<AdminHeader />
+		<main class="admin-layout">
+			<section class="admin-card">
+				<header class="admin-card__header">
+					<div>
+						<h1 class="admin-title">Settings</h1>
+						<p class="admin-subtitle">
+							Defina os textos globais do site e do header da
+							página inicial.
+						</p>
+					</div>
+				</header>
+
+				<div
+					id="settings-alert"
+					class="admin-alert"
+					style="display: none;"
+				>
+				</div>
+
+				<form id="site-settings-form" class="admin-form">
+					<label class="admin-field">
+						<span>Título do site</span>
+						<input
+							type="text"
+							name="siteTitle"
+							value={settings.siteTitle}
+							placeholder="Ex.: Alziro Duarte Marketplace Blog"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Descrição do site</span>
+						<textarea
+							name="siteDescription"
+							rows={3}
+							placeholder="Descrição geral do site para SEO e contexto"
+							>{settings.siteDescription}</textarea
+						>
+					</label>
+
+					<label class="admin-field">
+						<span>Título do header da página inicial</span>
+						<input
+							type="text"
+							name="homeHeaderTitle"
+							value={settings.homeHeaderTitle}
+							placeholder="Ex.: Conteúdos sobre vendas, SEO e crescimento"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Descrição do header da página inicial</span>
+						<textarea
+							name="homeHeaderDescription"
+							rows={3}
+							placeholder="Texto descritivo abaixo do título principal da home"
+							>{settings.homeHeaderDescription}</textarea
+						>
+					</label>
+
+					<label class="admin-field">
+						<span>Cor primária</span>
+						<input
+							type="color"
+							name="primaryColor"
+							value={settings.primaryColor || "#1D1760"}
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Cor secundária</span>
+						<input
+							type="color"
+							name="secondaryColor"
+							value={settings.secondaryColor || "#2563eb"}
+						/>
+					</label>
+
+					<h2 class="admin-title" style="font-size: 1.25rem; margin: 8px 0 0;">
+						Redes sociais
+					</h2>
+					<p class="admin-subtitle" style="margin-top: -8px;">
+						Preencha apenas as redes que deseja exibir no footer.
+					</p>
+
+					<label class="admin-field">
+						<span>Instagram</span>
+						<input
+							type="url"
+							name="socialInstagram"
+							value={settings.socialLinks?.instagram || ""}
+							placeholder="https://instagram.com/seu-perfil"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>YouTube</span>
+						<input
+							type="url"
+							name="socialYoutube"
+							value={settings.socialLinks?.youtube || ""}
+							placeholder="https://youtube.com/@seucanal"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>LinkedIn</span>
+						<input
+							type="url"
+							name="socialLinkedin"
+							value={settings.socialLinks?.linkedin || ""}
+							placeholder="https://linkedin.com/company/suaempresa"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>Facebook</span>
+						<input
+							type="url"
+							name="socialFacebook"
+							value={settings.socialLinks?.facebook || ""}
+							placeholder="https://facebook.com/suapagina"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>TikTok</span>
+						<input
+							type="url"
+							name="socialTiktok"
+							value={settings.socialLinks?.tiktok || ""}
+							placeholder="https://tiktok.com/@seuperfil"
+						/>
+					</label>
+
+					<label class="admin-field">
+						<span>X (Twitter)</span>
+						<input
+							type="url"
+							name="socialX"
+							value={settings.socialLinks?.x || ""}
+							placeholder="https://x.com/seuperfil"
+						/>
+					</label>
+
+					<div class="admin-form__actions">
+						<button
+							type="submit"
+							class="admin-button admin-button--primary"
+						>
+							Salvar settings
+						</button>
+					</div>
+				</form>
+			</section>
+		</main>
+
+		<script>
+			const form = document.getElementById(
+				"site-settings-form",
+			) as HTMLFormElement | null;
+			const alertBox = document.getElementById("settings-alert");
+
+			function showAlert(message: string, isError: boolean) {
+				if (!alertBox) return;
+				alertBox.textContent = message;
+				alertBox.style.display = "block";
+				alertBox.style.background = isError ? "#fee2e2" : "#dcfce7";
+				alertBox.style.color = isError ? "#991b1b" : "#166534";
+			}
+
+			if (form) {
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const formData = new FormData(form);
+
+					const payload = {
+						siteTitle: String(formData.get("siteTitle") || ""),
+						siteDescription: String(
+							formData.get("siteDescription") || "",
+						),
+						homeHeaderTitle: String(
+							formData.get("homeHeaderTitle") || "",
+						),
+						homeHeaderDescription: String(
+							formData.get("homeHeaderDescription") || "",
+						),
+						primaryColor: String(
+							formData.get("primaryColor") || "#1D1760",
+						),
+						secondaryColor: String(
+							formData.get("secondaryColor") || "#2563eb",
+						),
+						socialLinks: {
+							instagram: String(formData.get("socialInstagram") || ""),
+							youtube: String(formData.get("socialYoutube") || ""),
+							linkedin: String(formData.get("socialLinkedin") || ""),
+							facebook: String(formData.get("socialFacebook") || ""),
+							tiktok: String(formData.get("socialTiktok") || ""),
+							x: String(formData.get("socialX") || ""),
+						},
+					};
+
+					const res = await fetch("/api/admin/settings", {
+						method: "PUT",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(payload),
+					});
+
+					if (!res.ok) {
+						showAlert("Erro ao salvar settings.", true);
+						return;
+					}
+
+					showAlert("Settings salvas com sucesso.", false);
+				});
+			}
+		</script>
+	</body>
+</html>

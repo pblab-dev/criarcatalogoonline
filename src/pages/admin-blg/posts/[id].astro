@@ -1,0 +1,508 @@
+---
+import AdminHeader from "../../../components/AdminHeader.astro";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../../lib/auth";
+import { getPostById, type PostDTO } from "../../../lib/models/post";
+import "../../../styles/global.css";
+
+export const prerender = false;
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+
+if (!user) {
+	return Astro.redirect("/admin-blg/login");
+}
+
+const { id } = Astro.params;
+let post: PostDTO | null = null;
+
+if (id) {
+	post = await getPostById(id);
+}
+
+if (!post) {
+	return Astro.redirect("/admin-blg/posts");
+}
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Editar Post - Admin</title>
+		<link
+			href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<AdminHeader />
+		<main class="admin-layout">
+			<section class="admin-card">
+				<header class="admin-card__header">
+					<div>
+						<h1 class="admin-title">Editar post</h1>
+						<p class="admin-subtitle">
+							Atualize título, slug, conteúdo e metadados deste
+							artigo.
+						</p>
+					</div>
+					<a
+						href="/admin-blg/posts"
+						class="admin-button admin-button--reverse"
+					>
+						Voltar
+					</a>
+				</header>
+
+				<form id="edit-post-form" class="admin-form admin-form--grid">
+					<input type="hidden" name="id" value={post.id} />
+
+					<div class="admin-form__column">
+						<label class="admin-field">
+							<span>Título</span>
+							<input
+								type="text"
+								name="title"
+								required
+								value={post.title}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Slug</span>
+							<input
+								type="text"
+								name="slug"
+								required
+								value={post.slug}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Categoria (nome)</span>
+							<input
+								type="text"
+								name="categoryName"
+								required
+								value={post.category?.name}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Categoria (slug)</span>
+							<input
+								type="text"
+								name="categorySlug"
+								required
+								value={post.category?.slug}
+							/>
+						</label>
+
+						<div class="admin-field admin-field--image">
+							<span class="admin-field__label"
+								>Imagem do artigo</span
+							>
+							<div class="admin-image-upload">
+								<div class="admin-image-upload__option">
+									<label
+										class="admin-image-upload__file-label"
+										for="imageFileInput"
+									>
+										<span>Trocar imagem</span>
+									</label>
+									<input
+										id="imageFileInput"
+										class="admin-image-upload__file"
+										type="file"
+										accept="image/*"
+									/>
+									<p class="admin-image-upload__hint">
+										Formato recomendado: JPG/PNG/WebP até
+										10MB.
+									</p>
+								</div>
+								<p class="admin-image-upload__or">ou</p>
+								<div class="admin-image-upload__option">
+									<label class="admin-field">
+										<span>Imagem (URL)</span>
+										<input
+											id="imageUrlInput"
+											type="text"
+											name="imageUrl"
+											value={post.image?.url}
+											placeholder="https://... ou caminho local"
+										/>
+									</label>
+								</div>
+								<p
+									id="imageUploadStatus"
+									class="admin-image-upload__status"
+									aria-live="polite"
+								>
+								</p>
+								<div
+									id="imagePreviewWrap"
+									class="admin-image-preview"
+									style={post.image?.url
+										? ""
+										: "display:none;"}
+								>
+									<img
+										id="imagePreviewImg"
+										class="admin-image-preview__img"
+										src={post.image?.url}
+										alt="Pré-visualização da imagem"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<label class="admin-field">
+							<span>Imagem - texto alternativo (alt)</span>
+							<input
+								type="text"
+								name="imageAlt"
+								value={post.image?.alt}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Tags (separadas por vírgula)</span>
+							<input
+								type="text"
+								name="tags"
+								value={post.tags.join(", ")}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Tempo de leitura (minutos)</span>
+							<input
+								type="number"
+								name="readTime"
+								min="1"
+								value={post.readTime}
+							/>
+						</label>
+
+						<label class="admin-field">
+							<span>Status</span>
+							<select name="status">
+								<option
+									value="draft"
+									selected={post.status === "draft"}
+								>
+									Rascunho
+								</option>
+								<option
+									value="published"
+									selected={post.status === "published"}
+								>
+									Publicado
+								</option>
+								<option
+									value="archived"
+									selected={post.status === "archived"}
+								>
+									Arquivado
+								</option>
+							</select>
+						</label>
+					</div>
+
+					<div class="admin-form__column">
+						<label class="admin-field">
+							<span>Resumo (excerpt)</span>
+							<textarea name="excerpt" required rows={4}>
+								{post.excerpt}
+							</textarea>
+						</label>
+
+						<label class="admin-field">
+							<span>Conteúdo (HTML)</span>
+						</label>
+						<div class="admin-editor-wrapper">
+							<div id="editor" set:html={post.content} />
+						</div>
+					</div>
+
+					<div class="admin-form__actions">
+						<button
+							type="button"
+							id="delete-post-button"
+							class="admin-button admin-button--reverse"
+						>
+							Excluir
+						</button>
+						<button
+							type="submit"
+							class="admin-button admin-button--primary"
+						>
+							Salvar alterações
+						</button>
+					</div>
+				</form>
+			</section>
+		</main>
+		<div id="uploadOverlay" class="upload-overlay" aria-hidden="true">
+			<div class="upload-overlay__box">
+				<div class="upload-overlay__spinner"></div>
+				<p class="upload-overlay__text">Fazendo upload da imagem...</p>
+			</div>
+		</div>
+
+		<!-- Include the Quill library -->
+		<script
+			is:inline
+			src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"
+		></script>
+
+		<!-- Initialize Quill editor -->
+		<script is:inline>
+			const quill = new window.Quill("#editor", {
+				theme: "snow",
+				modules: {
+					toolbar: [
+						[{ header: [1, 2, false] }],
+						["bold", "italic", "underline", "code-block"],
+						["image", "link"],
+					],
+				},
+			});
+		</script>
+
+		<script>
+			// @ts-nocheck
+			/** @type {HTMLFormElement | null} */
+			const form = document.getElementById("edit-post-form");
+			const deleteButton = document.getElementById("delete-post-button");
+
+			/** @type {HTMLInputElement | null} */
+			const titleInput = document.querySelector('input[name="title"]');
+			/** @type {HTMLInputElement | null} */
+			const slugInput = document.querySelector('input[name="slug"]');
+			const imageFileInput = document.getElementById("imageFileInput");
+			const imageUrlInput = document.getElementById("imageUrlInput");
+			const imageUploadStatus =
+				document.getElementById("imageUploadStatus");
+			const imagePreviewWrap =
+				document.getElementById("imagePreviewWrap");
+			const imagePreviewImg = document.getElementById("imagePreviewImg");
+			const uploadOverlay = document.getElementById("uploadOverlay");
+			const submitButton = form?.querySelector('button[type="submit"]');
+
+			/** @param {string} value */
+			const slugify = (value) =>
+				value
+					.toLowerCase()
+					.normalize("NFD")
+					.replace(/[\u0300-\u036f]/g, "")
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-+|-+$/g, "");
+
+			if (titleInput && slugInput) {
+				let slugDirty = false;
+
+				slugInput.addEventListener("input", () => {
+					slugDirty = true;
+				});
+
+				titleInput.addEventListener("input", () => {
+					if (slugDirty) return;
+					slugInput.value = slugify(titleInput.value || "");
+				});
+			}
+
+			/** @type {HTMLInputElement | null} */
+			const categoryNameInput = document.querySelector(
+				'input[name="categoryName"]',
+			);
+			/** @type {HTMLInputElement | null} */
+			const categorySlugInput = document.querySelector(
+				'input[name="categorySlug"]',
+			);
+
+			if (categoryNameInput && categorySlugInput) {
+				let categorySlugDirty = false;
+
+				categorySlugInput.addEventListener("input", () => {
+					categorySlugDirty = true;
+				});
+
+				categoryNameInput.addEventListener("input", () => {
+					if (categorySlugDirty) return;
+					categorySlugInput.value = slugify(
+						categoryNameInput.value || "",
+					);
+				});
+			}
+
+			const setImageStatus = (message, isError = false) => {
+				if (!imageUploadStatus) return;
+				imageUploadStatus.textContent = message;
+				imageUploadStatus.dataset.status = isError ? "error" : "ok";
+			};
+
+			const updateImagePreview = (url) => {
+				if (!imagePreviewWrap || !imagePreviewImg) return;
+				if (!url) {
+					imagePreviewWrap.style.display = "none";
+					imagePreviewImg.removeAttribute("src");
+					return;
+				}
+				imagePreviewImg.src = url;
+				imagePreviewWrap.style.display = "";
+			};
+
+			const setUploading = (isUploading) => {
+				if (uploadOverlay) {
+					uploadOverlay.classList.toggle("is-active", isUploading);
+					uploadOverlay.setAttribute(
+						"aria-hidden",
+						isUploading ? "false" : "true",
+					);
+				}
+				if (submitButton instanceof HTMLButtonElement) {
+					submitButton.disabled = isUploading;
+				}
+				if (imageFileInput instanceof HTMLInputElement) {
+					imageFileInput.disabled = isUploading;
+				}
+			};
+
+			if (imageUrlInput) {
+				imageUrlInput.addEventListener("input", () => {
+					updateImagePreview(imageUrlInput.value.trim());
+				});
+			}
+
+			if (imageFileInput) {
+				imageFileInput.addEventListener("change", async () => {
+					const file = imageFileInput.files?.[0];
+					if (!file) return;
+
+					try {
+						setUploading(true);
+						setImageStatus("Fazendo upload da imagem...");
+						const uploadData = new FormData();
+						uploadData.append("image", file);
+						uploadData.append(
+							"slug",
+							(slugInput && slugInput.value) ||
+								(titleInput
+									? slugify(titleInput.value || "")
+									: ""),
+						);
+						uploadData.append("date", new Date().toISOString());
+
+						const res = await fetch("/api/admin/upload", {
+							method: "POST",
+							body: uploadData,
+						});
+						const data = await res.json();
+
+						if (!res.ok || !data?.data?.publicUrl) {
+							throw new Error(data?.error || "Falha no upload.");
+						}
+
+						if (imageUrlInput) {
+							imageUrlInput.value = data.data.publicUrl;
+						}
+						updateImagePreview(data.data.publicUrl);
+						setImageStatus("Upload concluído com sucesso.");
+					} catch (error) {
+						setImageStatus(
+							error instanceof Error
+								? error.message
+								: "Erro no upload.",
+							true,
+						);
+					} finally {
+						setUploading(false);
+					}
+				});
+			}
+
+			if (form) {
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+
+					const formData = new FormData(form);
+					const id = String(formData.get("id") || "");
+
+					// Captura o HTML atual do Quill (ou do container)
+					const editor = document.querySelector("#editor");
+					let contentHtml = "";
+					if (editor) {
+						const qlEditor = editor.querySelector(".ql-editor");
+						if (qlEditor) {
+							contentHtml = qlEditor.innerHTML;
+						} else {
+							contentHtml = editor.innerHTML;
+						}
+					}
+
+					const imageUrl = String(formData.get("imageUrl") || "");
+
+					const payload = /** @type {any} */ ({
+						title: formData.get("title"),
+						slug: formData.get("slug"),
+						excerpt: formData.get("excerpt"),
+						content: contentHtml,
+						category: {
+							name: formData.get("categoryName"),
+							slug: formData.get("categorySlug"),
+						},
+						tags: String(formData.get("tags") || "")
+							.split(",")
+							.map((t) => t.trim())
+							.filter(Boolean),
+						readTime: Number(formData.get("readTime") || "1"),
+						status: formData.get("status"),
+					});
+
+					if (imageUrl) {
+						payload.image = {
+							url: imageUrl,
+							alt:
+								String(formData.get("imageAlt") || "") ||
+								undefined,
+						};
+					}
+
+					const res = await fetch(`/api/admin/posts/${id}`, {
+						method: "PUT",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(payload),
+					});
+
+					if (res.ok) {
+						window.location.href = "/admin-blg/posts";
+					} else {
+						alert("Erro ao atualizar o post.");
+					}
+				});
+			}
+
+			if (deleteButton && form) {
+				deleteButton.addEventListener("click", async () => {
+					if (!confirm("Tem certeza que deseja excluir este post?"))
+						return;
+					const formData = new FormData(form);
+					const id = String(formData.get("id") || "");
+					const res = await fetch(`/api/admin/posts/${id}`, {
+						method: "DELETE",
+					});
+					if (res.ok) {
+						window.location.href = "/admin-blg/posts";
+					} else {
+						alert("Erro ao excluir o post.");
+					}
+				});
+			}
+		</script>
+	</body>
+</html>

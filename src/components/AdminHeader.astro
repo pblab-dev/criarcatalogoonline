@@ -1,0 +1,36 @@
+---
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../lib/auth";
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+---
+
+<header class="admin-header">
+	<div class="admin-header__inner">
+		<a href="/admin-blg" class="admin-header__brand">
+			<img src="/logo.png" alt="Admin" class="admin-header__logo" />
+			<span class="admin-header__brand-text">Blog Admin</span>
+		</a>
+
+		<nav class="admin-header__nav">
+			<a href="/admin-blg" class="admin-header__link">Dashboard</a>
+			<a href="/admin-blg/posts" class="admin-header__link">Posts</a>
+			<a href="/admin-blg/settings" class="admin-header__link">Settings</a>
+			<a href="/admin-blg/structured-data" class="admin-header__link">
+				Dados estruturados
+			</a>
+		</nav>
+
+		<div class="admin-header__user">
+			{user && <span class="admin-header__user-name">{user.name}</span>}
+			<form method="post" action="/api/admin/logout">
+				<button
+					type="submit"
+					class="admin-button admin-button--reverse"
+				>
+					Sair
+				</button>
+			</form>
+		</div>
+	</div>
+</header>

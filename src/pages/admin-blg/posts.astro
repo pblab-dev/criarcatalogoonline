@@ -1,0 +1,202 @@
+---
+import AdminHeader from "../../components/AdminHeader.astro";
+import type { PostDTO } from "../../lib/models/post";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../../lib/auth";
+import "../../styles/global.css";
+
+export const prerender = false;
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+const user = await verifySessionToken(token);
+
+if (!user) {
+	return Astro.redirect("/admin-blg/login");
+}
+
+const apiUrl = import.meta.env.DEV ? "http://localhost:4322" : "";
+
+let posts: PostDTO[] = [];
+
+try {
+	const res = await fetch(`${apiUrl}/api/admin/posts`);
+	if (res.ok) {
+		const data = await res.json();
+		posts = data.posts ?? [];
+	}
+} catch (error) {
+	console.error("Erro ao carregar posts no admin", error);
+}
+
+const publishedCount = posts.filter((p) => p.status === "published").length;
+const draftCount = posts.filter((p) => p.status === "draft").length;
+const archivedCount = posts.filter((p) => p.status === "archived").length;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>Admin - Posts</title>
+	</head>
+	<body>
+		<AdminHeader />
+		<main class="admin-layout">
+			<section class="admin-card">
+				<header class="admin-card__header">
+					<div>
+						<h1 class="admin-title">Gerenciar Posts</h1>
+						<p class="admin-subtitle">
+							Lista de posts cadastrados no MongoDB, filtrados por
+							status.
+						</p>
+					</div>
+					<a
+						href="/admin-blg/posts/new"
+						class="admin-button admin-button--reverse"
+					>
+						Novo post
+					</a>
+				</header>
+
+				<div class="admin-filters">
+					<button
+						type="button"
+						class="admin-filters__button admin-filters__button--active"
+						data-filter="published"
+					>
+						Publicados ({publishedCount})
+					</button>
+					<button
+						type="button"
+						class="admin-filters__button"
+						data-filter="draft"
+					>
+						Rascunhos ({draftCount})
+					</button>
+					<button
+						type="button"
+						class="admin-filters__button"
+						data-filter="archived"
+					>
+						Arquivados ({archivedCount})
+					</button>
+					<button
+						type="button"
+						class="admin-filters__button"
+						data-filter="all"
+					>
+						Todos ({posts.length})
+					</button>
+				</div>
+
+				<table class="admin-table">
+					<thead>
+						<tr>
+							<th>Título</th>
+							<th>Slug</th>
+							<th>Categoria</th>
+							<th>Status</th>
+							<th>Publicado em</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody id="admin-posts-table-body">
+						{
+							posts.map((post) => (
+								<tr>
+									<td>{post.title}</td>
+									<td>
+										<code>{post.slug}</code>
+									</td>
+									<td>{post.category?.name}</td>
+									<td
+										data-col="status"
+										data-status={post.status}
+									>
+										{post.status}
+									</td>
+									<td>
+										{post.publishedAt
+											? new Date(
+													post.publishedAt,
+												).toLocaleDateString("pt-BR")
+											: "-"}
+									</td>
+									<td>
+										<a
+											href={`/admin-blg/posts/${post.id}`}
+											class="admin-button admin-button--reverse"
+										>
+											Editar
+										</a>
+									</td>
+								</tr>
+							))
+						}
+						{
+							posts.length === 0 && (
+								<tr>
+									<td colspan="6" class="admin-table__empty">
+										Nenhum post cadastrado ainda.
+									</td>
+								</tr>
+							)
+						}
+					</tbody>
+				</table>
+			</section>
+		</main>
+		<script>
+			// @ts-nocheck
+			const filterButtons = document.querySelectorAll(
+				".admin-filters__button",
+			);
+			const rows = document.querySelectorAll(
+				"#admin-posts-table-body tr",
+			);
+
+			/** @param {Element} row */
+			function getRowStatus(row) {
+				if (!(row instanceof HTMLElement)) return "";
+				const statusCell = row.querySelector('[data-col="status"]');
+				if (!statusCell || !(statusCell instanceof HTMLElement))
+					return "";
+
+				const fromData = statusCell.dataset.status;
+				if (fromData) return fromData;
+
+				return (statusCell.textContent || "").trim().toLowerCase();
+			}
+
+			/** @param {string} status */
+			function applyFilter(status) {
+				rows.forEach((row) => {
+					if (!(row instanceof HTMLElement)) return;
+					const rowStatus = getRowStatus(row);
+
+					if (status === "all") {
+						row.style.display = "";
+					} else {
+						row.style.display = rowStatus === status ? "" : "none";
+					}
+				});
+			}
+
+			filterButtons.forEach((btn) => {
+				btn.addEventListener("click", () => {
+					const filter = btn.dataset.filter || "published";
+
+					filterButtons.forEach((b) =>
+						b.classList.remove("admin-filters__button--active"),
+					);
+					btn.classList.add("admin-filters__button--active");
+
+					applyFilter(filter);
+				});
+			});
+
+			// Filtro padrão: publicados
+			applyFilter("published");
+		</script>
+	</body>
+</html>

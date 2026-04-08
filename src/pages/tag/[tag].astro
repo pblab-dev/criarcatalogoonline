@@ -1,0 +1,475 @@
+---
+import {
+	getAllPublishedPosts,
+	getRecommendedPosts,
+	getRelatedTags,
+	getPostsByTags,
+} from "../../lib/blogQueries";
+import BlogFooter from "../../components/BlogFooter.astro";
+import { getSiteSettings } from "../../lib/models/site-settings";
+import { getCategoriesWithCounts } from "../../lib/models/post";
+import { getStructuredDataSettings } from "../../lib/models/structured-data-settings";
+
+export async function getStaticPaths() {
+	const posts = await getAllPublishedPosts();
+	const allTags = new Set<string>();
+	posts.forEach((post) => {
+		post.tags.forEach((tag) => allTags.add(tag));
+	});
+
+	return Array.from(allTags).map((tag) => ({
+		params: { tag },
+	}));
+}
+
+export const prerender = true;
+
+const { tag } = Astro.params;
+const currentTag = tag || "";
+
+const allPosts = await getAllPublishedPosts();
+const posts = allPosts.filter((post) => post.tags.includes(currentTag));
+
+const recommendedPosts = await getRecommendedPosts();
+const relatedTags = getRelatedTags(currentTag);
+const relatedPosts =
+	relatedTags.length > 0 ? await getPostsByTags(relatedTags, 3) : [];
+const categories = await getCategoriesWithCounts();
+const settings = await getSiteSettings();
+const structured = await getStructuredDataSettings();
+const siteTitle = settings.siteTitle || "Blog Alziro Duarte";
+const siteDescription =
+	settings.siteDescription ||
+	"Blog Alziro Duarte - Dicas sobre posicionamento em marketplaces";
+const primaryColor = settings.primaryColor || "#1D1760";
+const secondaryColor = settings.secondaryColor || "#2563eb";
+---
+
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.png" />
+		<link rel="icon" href="/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={siteDescription} />
+		<meta
+			name="keywords"
+			content={`${tag}, ecommerce, reputação online, marketing digital, marketplace`}
+		/>
+		<title>{tag} - {siteTitle} | Artigos e Dicas</title>
+		<!-- Open Graph / Twitter / Canonical + JSON-LD dinâmico -->
+		{
+			(() => {
+				const origin = Astro.url.origin ?? structured.siteUrl;
+				const siteUrl = structured.siteUrl || origin;
+				const baseUrl = siteUrl.endsWith("/")
+					? siteUrl.slice(0, -1)
+					: siteUrl;
+				const tagUrl = `${baseUrl}/tag/${encodeURIComponent(currentTag)}`;
+				const logoUrl = structured.logoUrl || `${siteUrl}/logo2.png`;
+				const orgId = `${siteUrl}/#organization`;
+				const websiteId = `${siteUrl}/#website`;
+
+				const graph = {
+					"@context": "https://schema.org",
+					"@graph": [
+						{
+							"@type": ["LocalBusiness", "Organization"],
+							"@id": orgId,
+							name: structured.organizationName,
+							url: siteUrl,
+							email: structured.contactEmail,
+							address: {
+								"@type": "PostalAddress",
+								addressCountry: structured.addressCountry,
+								addressLocality: structured.addressLocality,
+								addressRegion: structured.addressRegion,
+							},
+							logo: {
+								"@type": "ImageObject",
+								url: logoUrl,
+								contentUrl: logoUrl,
+								caption: structured.logoCaption,
+								inLanguage: "pt-BR",
+							},
+							telephone: structured.telephone,
+							description: structured.description,
+						},
+						{
+							"@type": "WebSite",
+							"@id": websiteId,
+							url: siteUrl,
+							name: structured.websiteName,
+							alternateName: structured.websiteAlternateName,
+							publisher: { "@id": orgId },
+							inLanguage: "pt-BR",
+						},
+						{
+							"@type": "CollectionPage",
+							"@id": `${tagUrl}#webpage`,
+							url: tagUrl,
+							name: `Artigos sobre \"${currentTag}\" - ${siteTitle}`,
+							isPartOf: { "@id": websiteId },
+							inLanguage: "pt-BR",
+							mainEntity: posts.map((p) => {
+								const postBase = p.slug.startsWith("http")
+									? p.slug
+									: `${baseUrl}/${p.slug}`;
+								const postUrl = postBase;
+								const img =
+									p.image?.url &&
+									p.image.url.startsWith("http")
+										? p.image.url
+										: p.image?.url
+											? `${siteUrl}${p.image.url}`
+											: undefined;
+								return {
+									"@type": "BlogPosting",
+									"@id": `${postUrl}#richSnippet`,
+									headline: p.title,
+									datePublished:
+										p.publishedAt?.toISOString?.() ??
+										undefined,
+									dateModified:
+										p.updatedAt?.toISOString?.() ??
+										undefined,
+									keywords: p.tags.join(", "),
+									articleSection:
+										p.category?.name ?? undefined,
+									description: p.excerpt,
+									url: postUrl,
+									image: img
+										? {
+												"@type": "ImageObject",
+												url: img,
+											}
+										: undefined,
+									author: {
+										"@type": "Person",
+										name: p.author.name,
+									},
+									publisher: { "@id": orgId },
+									inLanguage: "pt-BR",
+								};
+							}),
+						},
+					],
+				};
+
+				return (
+					<>
+						<meta property="og:type" content="website" />
+						<meta property="og:url" content={tagUrl} />
+						<meta
+							property="og:title"
+							content={`${currentTag} - ${siteTitle}`}
+						/>
+						<meta
+							property="og:description"
+							content={siteDescription}
+						/>
+						<meta property="og:image" content={logoUrl} />
+						<meta property="og:locale" content="pt_BR" />
+						<meta property="og:site_name" content={siteTitle} />
+						<meta
+							name="twitter:card"
+							content="summary_large_image"
+						/>
+						<meta name="twitter:url" content={tagUrl} />
+						<meta
+							name="twitter:title"
+							content={`${currentTag} - ${siteTitle}`}
+						/>
+						<meta
+							name="twitter:description"
+							content={siteDescription}
+						/>
+						<meta name="twitter:image" content={logoUrl} />
+						<link rel="canonical" href={tagUrl} />
+						<script
+							type="application/ld+json"
+							class="rank-math-schema"
+							set:html={JSON.stringify(graph)}
+						/>
+					</>
+				);
+			})()
+		}
+		<link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+		<link rel="stylesheet" href="/styles.css" />
+		<style
+			is:inline
+			set:html={`:root { --blue-dark: ${primaryColor}; --blue-medium: ${secondaryColor}; }`}
+		></style>
+		<style>
+			.navbar {
+				position: relative;
+				background: var(--blue-dark);
+				padding: 15px 0;
+			}
+		</style>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<!-- Navbar -->
+		<nav class="navbar">
+			<div class="navbar-container">
+				<div class="navbar-logo">
+					<a href="/">
+						<img
+							src="/logo2.png"
+							alt="Alziro Duarte - Comprar Avaliações Google 5 Estrelas"
+						/>
+					</a>
+				</div>
+
+				<button class="navbar-toggle" aria-label="Toggle menu">
+					<span></span>
+					<span></span>
+					<span></span>
+				</button>
+				<ul class="navbar-menu">
+					<li><a class="navbar-link" href="/">Início</a></li>
+					{
+						categories.slice(0, 8).map((item) => (
+							<li>
+								<a
+									class="navbar-link"
+									href={`/categoria/${item.category.slug}`}
+								>
+									{item.category.name}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</nav>
+
+		<!-- Tag Header -->
+		<section class="tag-header">
+			<div class="container">
+				<h1 class="tag-title">#{tag}</h1>
+				<p class="tag-subtitle">
+					Explore artigos sobre {tag}
+				</p>
+				<span class="tag-count">
+					{posts.length}
+					{posts.length === 1 ? "artigo" : "artigos"}
+				</span>
+			</div>
+		</section>
+
+		<!-- Blog Content -->
+		<section class="blog-content">
+			<div class="container">
+				<div class="blog-layout">
+					<!-- Main Content -->
+					<main class="blog-main">
+						<!-- Posts List -->
+						<div class="blog-posts">
+							{
+								posts.map((post) => (
+									<article class="blog-post-card">
+										<div class="blog-post-header">
+											<a
+												class="blog-post-category"
+												href={`/categoria/${post.category?.slug}`}
+											>
+												{post.category?.name}
+											</a>
+											<span class="blog-post-date">
+												{post.publishedAt
+													? new Date(
+															post.publishedAt,
+														).toLocaleDateString(
+															"pt-BR",
+														)
+													: ""}
+											</span>
+										</div>
+										<h2 class="blog-post-title">
+											<a href={`/${post.slug}`}>
+												{post.title}
+											</a>
+										</h2>
+										<p class="blog-post-excerpt">
+											{post.excerpt}
+										</p>
+										<div class="blog-post-footer">
+											<div class="blog-post-meta">
+												<span class="blog-post-author">
+													{post.author.name}
+												</span>
+												<span class="blog-post-read-time">
+													{post.readTime} min de
+													leitura
+												</span>
+											</div>
+											<a
+												href={`/blog/${post.slug}`}
+												class="blog-post-link"
+											>
+												Ler mais →
+											</a>
+										</div>
+										<div class="blog-post-tags">
+											{post.tags.map((postTag) => (
+												<a
+													href={`/tag/${postTag}`}
+													class="blog-tag"
+												>
+													{postTag}
+												</a>
+											))}
+										</div>
+									</article>
+								))
+							}
+						</div>
+					</main>
+
+					<!-- Sidebar -->
+					<aside class="blog-sidebar">
+						{
+							relatedTags.length > 0 && (
+								<div class="blog-sidebar-section">
+									<h3 class="blog-sidebar-title">
+										🔗 Tags Relacionadas
+									</h3>
+									<p style="font-size: 0.9rem; color: #6b7280; margin-bottom: 15px;">
+										Explore tópicos conectados
+									</p>
+									<div class="blog-post-tags">
+										{relatedTags.map((relatedTag) => (
+											<a
+												href={`/tag/${relatedTag}`}
+												class="blog-tag"
+											>
+												{relatedTag}
+											</a>
+										))}
+									</div>
+								</div>
+							)
+						}
+
+						{
+							relatedPosts.length > 0 && (
+								<div class="blog-sidebar-section">
+									<h3 class="blog-sidebar-title">
+										📚 Você Também Pode Gostar
+									</h3>
+									<div class="blog-sidebar-posts">
+										{relatedPosts.map((post) => (
+											<article class="blog-sidebar-post">
+												<a
+													href={`/${post.slug}`}
+													class="blog-sidebar-link"
+												>
+													<h4 class="blog-sidebar-post-title">
+														{post.title}
+													</h4>
+													<p class="blog-sidebar-post-excerpt">
+														{post.excerpt.substring(
+															0,
+															80,
+														)}
+														...
+													</p>
+												</a>
+											</article>
+										))}
+									</div>
+								</div>
+							)
+						}
+
+						<div class="blog-sidebar-section">
+							<h3 class="blog-sidebar-title">
+								⭐ Artigos em Destaque
+							</h3>
+							<div class="blog-sidebar-posts">
+								{
+									recommendedPosts.slice(0, 3).map((post) => (
+										<article class="blog-sidebar-post">
+											<a
+												href={`/${post.slug}`}
+												class="blog-sidebar-link"
+											>
+												<h4 class="blog-sidebar-post-title">
+													{post.title}
+												</h4>
+												<p class="blog-sidebar-post-excerpt">
+													{post.excerpt.substring(
+														0,
+														80,
+													)}
+													...
+												</p>
+											</a>
+										</article>
+									))
+								}
+							</div>
+						</div>
+
+						<div class="blog-sidebar-section">
+							<h3 class="blog-sidebar-title">🏷️ Todas as Tags</h3>
+							<div class="blog-post-tags">
+								{
+									Array.from(
+										new Set(
+											allPosts.flatMap((p) => p.tags),
+										),
+									)
+										.sort()
+										.map((tagItem) => (
+											<a
+												href={`/tag/${tagItem}`}
+												class={`blog-tag ${
+													tagItem === tag
+														? "active"
+														: ""
+												}`}
+											>
+												{tagItem}
+											</a>
+										))
+								}
+							</div>
+						</div>
+					</aside>
+				</div>
+			</div>
+		</section>
+
+		<BlogFooter recommendedPosts={recommendedPosts} />
+
+		<script>
+			const navbarToggle = document.querySelector(".navbar-toggle");
+			const navbarMenu = document.querySelector(".navbar-menu");
+
+			if (navbarToggle && navbarMenu) {
+				navbarToggle.addEventListener("click", () => {
+					navbarToggle.classList.toggle("active");
+					navbarMenu.classList.toggle("active");
+				});
+
+				const navbarLinks = document.querySelectorAll(".navbar-link");
+				navbarLinks.forEach((link) => {
+					link.addEventListener("click", () => {
+						navbarToggle.classList.remove("active");
+						navbarMenu.classList.remove("active");
+					});
+				});
+			}
+		</script>
+	</body>
+</html>

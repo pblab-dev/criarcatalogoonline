@@ -1,0 +1,250 @@
+---
+import { getCategoriesWithCounts, getPosts } from "../../lib/models/post";
+import { getRecommendedPosts } from "../../lib/blogQueries";
+import { getSiteSettings } from "../../lib/models/site-settings";
+import { getStructuredDataSettings } from "../../lib/models/structured-data-settings";
+import BlogFooter from "../../components/BlogFooter.astro";
+
+export async function getStaticPaths() {
+	const categories = await getCategoriesWithCounts();
+	return categories.map((item) => ({
+		params: { slug: item.category.slug },
+	}));
+}
+
+export const prerender = true;
+
+const { slug } = Astro.params;
+if (!slug) {
+	return Astro.redirect("/", 404);
+}
+
+const posts = await getPosts({
+	categorySlug: slug,
+	status: "published",
+	limit: 200,
+});
+
+const categories = await getCategoriesWithCounts();
+const currentCategory =
+	categories.find((item) => item.category.slug === slug)?.category ?? null;
+const recommendedPosts = await getRecommendedPosts();
+const settings = await getSiteSettings();
+const structured = await getStructuredDataSettings();
+
+const siteTitle = settings.siteTitle || "Blog Alziro Duarte";
+const siteDescription =
+	settings.siteDescription || "Dicas sobre posicionamento em marketplaces";
+const primaryColor = settings.primaryColor || "#1D1760";
+const secondaryColor = settings.secondaryColor || "#2563eb";
+---
+
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.png" />
+		<link rel="icon" href="/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={siteDescription} />
+		<title>{currentCategory?.name ?? slug} - {siteTitle}</title>
+		{
+			(() => {
+				const origin = Astro.url.origin ?? structured.siteUrl;
+				const siteUrl = structured.siteUrl || origin;
+				const baseUrl = siteUrl.endsWith("/") ? siteUrl.slice(0, -1) : siteUrl;
+				const categorySlug = slug;
+				const categoryUrl = `${baseUrl}/categoria/${encodeURIComponent(categorySlug)}`;
+				const logoUrl =
+					structured.logoUrl || `${siteUrl}/logo2.png`;
+				const orgId = `${siteUrl}/#organization`;
+				const websiteId = `${siteUrl}/#website`;
+				const categoryName = currentCategory?.name ?? categorySlug;
+
+				const graph = {
+					"@context": "https://schema.org",
+					"@graph": [
+						{
+							"@type": ["LocalBusiness", "Organization"],
+							"@id": orgId,
+							"name": structured.organizationName,
+							"url": siteUrl,
+							"email": structured.contactEmail,
+							"address": {
+								"@type": "PostalAddress",
+								"addressCountry": structured.addressCountry,
+								"addressLocality": structured.addressLocality,
+								"addressRegion": structured.addressRegion,
+							},
+							"logo": {
+								"@type": "ImageObject",
+								"url": logoUrl,
+								"contentUrl": logoUrl,
+								"caption": structured.logoCaption,
+								"inLanguage": "pt-BR",
+							},
+							"telephone": structured.telephone,
+							"description": structured.description,
+						},
+						{
+							"@type": "WebSite",
+							"@id": websiteId,
+							"url": siteUrl,
+							"name": structured.websiteName,
+							"alternateName": structured.websiteAlternateName,
+							"publisher": { "@id": orgId },
+							"inLanguage": "pt-BR",
+						},
+						{
+							"@type": "CollectionPage",
+							"@id": `${categoryUrl}#webpage`,
+							"url": categoryUrl,
+							"name": `Artigos na categoria \"${categoryName}\" - ${siteTitle}`,
+							"isPartOf": { "@id": websiteId },
+							"inLanguage": "pt-BR",
+							"mainEntity": posts.map((p) => {
+								const postUrl = `${baseUrl}/${p.slug}`;
+								const img =
+									p.image?.url && p.image.url.startsWith("http")
+										? p.image.url
+										: p.image?.url
+										? `${siteUrl}${p.image.url}`
+										: undefined;
+
+								return {
+									"@type": "BlogPosting",
+									"@id": `${postUrl}#richSnippet`,
+									"headline": p.title,
+									"datePublished": p.publishedAt?.toISOString?.() ?? undefined,
+									"dateModified": p.updatedAt?.toISOString?.() ?? undefined,
+									"keywords": p.tags.join(", "),
+									"articleSection": p.category?.name ?? undefined,
+									"description": p.excerpt,
+									"url": postUrl,
+									"image": img
+										? {
+												"@type": "ImageObject",
+												"url": img,
+											}
+										: undefined,
+									"author": {
+										"@type": "Person",
+										"name": p.author.name,
+									},
+									"publisher": { "@id": orgId },
+									"inLanguage": "pt-BR",
+								};
+							}),
+						},
+					],
+				};
+
+				return (
+					<>
+						<meta property="og:type" content="website" />
+						<meta property="og:url" content={categoryUrl} />
+						<meta
+							property="og:title"
+							content={`${categoryName} - ${siteTitle}`}
+						/>
+						<meta
+							property="og:description"
+							content={siteDescription}
+						/>
+						<meta property="og:image" content={logoUrl} />
+						<meta property="og:locale" content="pt_BR" />
+						<meta property="og:site_name" content={siteTitle} />
+						<meta name="twitter:card" content="summary_large_image" />
+						<meta name="twitter:url" content={categoryUrl} />
+						<meta
+							name="twitter:title"
+							content={`${categoryName} - ${siteTitle}`}
+						/>
+						<meta
+							name="twitter:description"
+							content={siteDescription}
+						/>
+						<meta name="twitter:image" content={logoUrl} />
+						<link rel="canonical" href={categoryUrl} />
+						<script
+							type="application/ld+json"
+							class="rank-math-schema"
+							set:html={JSON.stringify(graph)}
+						/>
+					</>
+				);
+			})()
+		}
+		<link rel="stylesheet" href="/styles.css" />
+		<style
+			is:inline
+			set:html={`:root { --blue-dark: ${primaryColor}; --blue-medium: ${secondaryColor}; }`}
+		></style>
+		<style>
+			.navbar {
+				position: relative;
+				background: var(--blue-dark);
+				padding: 15px 0;
+			}
+		</style>
+	</head>
+	<body>
+		<nav class="navbar">
+			<div class="navbar-container">
+				<div class="navbar-logo">
+					<a href="/">
+						<img src="/logo2.png" alt={`${siteTitle} - Logo`} />
+					</a>
+				</div>
+				<button class="navbar-toggle" aria-label="Toggle menu">
+					<span></span>
+					<span></span>
+					<span></span>
+				</button>
+				<ul class="navbar-menu">
+					<li><a class="navbar-link" href="/">Início</a></li>
+					{
+						categories.slice(0, 8).map((item) => (
+							<li>
+								<a class="navbar-link" href={`/categoria/${item.category.slug}`}>
+									{item.category.name}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</nav>
+
+		<section class="tag-header">
+			<div class="container">
+				<h1 class="tag-title">{currentCategory?.name ?? slug}</h1>
+				<p class="tag-subtitle">Artigos dessa categoria</p>
+				<span class="tag-count">
+					{posts.length} {posts.length === 1 ? "artigo" : "artigos"}
+				</span>
+			</div>
+		</section>
+
+		<section class="blog-content">
+			<div class="container">
+				<div class="blog-posts">
+					{
+						posts.map((post) => (
+							<article class="blog-post-card">
+								<h2 class="blog-post-title">
+									<a href={`/${post.slug}`}>{post.title}</a>
+								</h2>
+								<p class="blog-post-excerpt">{post.excerpt}</p>
+								<a href={`/${post.slug}`} class="blog-post-link">Ler mais -></a>
+							</article>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		<BlogFooter recommendedPosts={recommendedPosts} />
+	</body>
+</html>
+

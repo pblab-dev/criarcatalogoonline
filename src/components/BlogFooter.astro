@@ -1,0 +1,171 @@
+---
+import type { PostDTO } from "../lib/models/post";
+import { getSiteSettings } from "../lib/models/site-settings";
+import { getCategoriesWithCounts } from "../lib/models/post";
+import { getRecentPosts } from "../lib/blogQueries";
+
+interface Props {
+	recommendedPosts?: PostDTO[];
+}
+
+const { recommendedPosts = [] } = Astro.props;
+const settings = await getSiteSettings();
+const footerTitle = settings.siteTitle || "Alziro Duarte";
+const footerDescription =
+	settings.siteDescription ||
+	"Ajudamos marcas a transformar marketplaces em máquinas de crescimento previsível, com estratégia, dados e execução orientada a resultado.";
+const categories = await getCategoriesWithCounts();
+const recentPosts = await getRecentPosts(4);
+const latestPosts =
+	recentPosts.length > 0 ? recentPosts : recommendedPosts.slice(0, 4);
+const socialLinks = settings.socialLinks ?? {
+	instagram: "",
+	youtube: "",
+	linkedin: "",
+	facebook: "",
+	tiktok: "",
+	x: "",
+};
+
+function ensureExternalUrl(url: string): string {
+	const value = (url || "").trim();
+	if (!value) return "";
+	if (/^https?:\/\//i.test(value)) return value;
+	return `https://${value}`;
+}
+
+const socialItems = [
+	{
+		key: "instagram",
+		label: "Instagram",
+		href: ensureExternalUrl(socialLinks.instagram),
+	},
+	{
+		key: "youtube",
+		label: "YouTube",
+		href: ensureExternalUrl(socialLinks.youtube),
+	},
+	{
+		key: "linkedin",
+		label: "LinkedIn",
+		href: ensureExternalUrl(socialLinks.linkedin),
+	},
+	{
+		key: "facebook",
+		label: "Facebook",
+		href: ensureExternalUrl(socialLinks.facebook),
+	},
+	{
+		key: "tiktok",
+		label: "TikTok",
+		href: ensureExternalUrl(socialLinks.tiktok),
+	},
+	{ key: "x", label: "X", href: ensureExternalUrl(socialLinks.x) },
+].filter((item) => item.href);
+---
+
+<footer id="contato" class="footer footer--blog">
+	<div class="container">
+		<div class="footer-content footer-content--blog">
+			<div class="footer-logo">
+				<img
+					src="/logo2.png"
+					alt={`${footerTitle} - Crescimento em Marketplaces`}
+				/>
+				<h4 class="footer-blog-title footer-blog-title--brand">
+					{footerTitle}
+				</h4>
+				<p class="footer-about">
+					{footerDescription}
+				</p>
+				{
+					socialItems.length > 0 && (
+						<div class="footer-socials" aria-label="Redes sociais">
+							{socialItems.map((item) => (
+								<a
+									href={item.href}
+									target="_blank"
+									rel="noopener noreferrer"
+									class={`footer-social-link footer-social-link--${item.key}`}
+									aria-label={item.label}
+									title={item.label}
+								>
+									<span class="footer-social-link__label">
+										{item.label}
+									</span>
+								</a>
+							))}
+						</div>
+					)
+				}
+			</div>
+
+			<div class="footer-blog">
+				<h4 class="footer-blog-title">Categorias</h4>
+				<ul class="footer-category-list">
+					{
+						categories.slice(0, 8).map((item) => (
+							<li>
+								<a
+									href={`/categoria/${item.category.slug}`}
+									class="footer-blog-link"
+								>
+									{item.category.name}
+									<span class="footer-category-count">
+										({item.count})
+									</span>
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			<div class="footer-blog">
+				<h4 class="footer-blog-title">Últimas postagens</h4>
+				<div class="footer-blog-posts footer-blog-posts--latest">
+					{
+						latestPosts.map((post) => (
+							<article class="footer-blog-post">
+								<a
+									href={`/${post.slug}`}
+									class="footer-blog-link"
+								>
+									<h5 class="footer-blog-post-title">
+										{post.title.length > 60
+											? post.title.slice(0, 57) + "..."
+											: post.title}
+									</h5>
+									<p class="footer-blog-post-excerpt">
+										{post.excerpt.length > 90
+											? post.excerpt.slice(0, 87) + "..."
+											: post.excerpt}
+									</p>
+								</a>
+							</article>
+						))
+					}
+				</div>
+			</div>
+		</div>
+		<div class="footer-bottom footer-bottom--blog">
+			<p>
+				&copy; {new Date().getFullYear()}
+				{footerTitle}. Todos os direitos reservados.
+			</p>
+		</div>
+	</div>
+</footer>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-RXMZ975W8N"
+></script>
+<script is:inline>
+	window.dataLayer = window.dataLayer || [];
+	function gtag() {
+		dataLayer.push(arguments);
+	}
+	gtag("js", new Date());
+
+	gtag("config", "G-RXMZ975W8N");
+</script>
