@@ -51,7 +51,7 @@ ${sortedTags
 	.map((tag) => {
 		const priority = getTagPriority(tag).toFixed(1);
 		return `	<url>
-		<loc>${SITE_URL}/blog/tag/${encodeURIComponent(tag)}</loc>
+		<loc>${SITE_URL}/tag/${encodeURIComponent(tag)}</loc>
 		<lastmod>${latestPostDate.toISOString()}</lastmod>
 		<changefreq>${Number(priority) >= 0.7 ? 'weekly' : 'monthly'}</changefreq>
 		<priority>${priority}</priority>
