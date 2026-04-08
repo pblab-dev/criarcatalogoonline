@@ -13,7 +13,7 @@ if (!user) {
 	return Astro.redirect("/admin-blg/login");
 }
 
-const apiUrl = import.meta.env.DEV ? "http://localhost:4322" : "";
+const apiUrl = import.meta.env.DEV ? "https://criarcatalogoonline.online" : "";
 
 let posts: PostDTO[] = [];
 
