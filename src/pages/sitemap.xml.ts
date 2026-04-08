@@ -10,7 +10,7 @@ function getTagPriority(tag: string): number {
 
 export const GET: APIRoute = async ({ request }) => {
 	const url = new URL(request.url);
-	const SITE_URL = 'https://criarcatalogodigital.online';
+	const SITE_URL = 'https://criarcatalogoonline.online';
 
 	const posts = await getAllPublishedPosts();
 	const allTags = await getAllTags();
