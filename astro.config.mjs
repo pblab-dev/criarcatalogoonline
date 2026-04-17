@@ -9,7 +9,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://alziroduartemarketplace.blog',
+  site: 'https://criarcatalogoonline.online',
   output: 'server',
   adapter: node({
     mode: 'middleware',
