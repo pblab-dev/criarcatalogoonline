@@ -1,4 +1,10 @@
 import { ObjectId, type WithId } from 'mongodb';
+import {
+	getMemoryCacheTtlMs,
+	invalidateMemoryCacheKey,
+	invalidateMemoryCachePrefix,
+	memoryCached,
+} from '../memory-cache';
 import { getDb } from '../mongodb';
 
 export type PostStatus = 'draft' | 'pending' | 'published' | 'archived' | 'deleted';
@@ -100,6 +106,7 @@ export async function createPost(input: PostInput): Promise<PostDTO> {
 
 	const collection = await getCollection();
 	await collection.insertOne(doc);
+	invalidatePostsCache();
 	return toDTO(doc);
 }
 
@@ -112,62 +119,100 @@ export interface PostQueryOptions {
 	skip?: number;
 }
 
+const POSTS_CACHE_PREFIX = 'posts:';
+
+function postsListCacheKey(options: PostQueryOptions): string {
+	const normalized = {
+		tag: options.tag ?? '',
+		categorySlug: options.categorySlug ?? '',
+		status: options.status ?? '',
+		search: options.search ?? '',
+		limit: options.limit ?? 20,
+		skip: options.skip ?? 0,
+	};
+	return `${POSTS_CACHE_PREFIX}list:${JSON.stringify(normalized)}`;
+}
+
+function postSlugCacheKey(slug: string, includeDrafts: boolean): string {
+	return `${POSTS_CACHE_PREFIX}slug:${slug}:${includeDrafts}`;
+}
+
+function postIdCacheKey(id: string): string {
+	return `${POSTS_CACHE_PREFIX}id:${id}`;
+}
+
+const TAGS_COUNTS_CACHE_KEY = `${POSTS_CACHE_PREFIX}tags:counts`;
+const CATEGORIES_COUNTS_CACHE_KEY = `${POSTS_CACHE_PREFIX}categories:counts`;
+
+function invalidatePostsCache(): void {
+	invalidateMemoryCachePrefix(POSTS_CACHE_PREFIX);
+}
+
 export async function getPosts(options: PostQueryOptions = {}): Promise<PostDTO[]> {
-	const {
-		tag,
-		categorySlug,
-		status,
-		search,
-		limit = 20,
-		skip = 0,
-	} = options;
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(postsListCacheKey(options), ttl, async () => {
+		const {
+			tag,
+			categorySlug,
+			status,
+			search,
+			limit = 20,
+			skip = 0,
+		} = options;
 
-	const collection = await getCollection();
+		const collection = await getCollection();
 
-	const query: Record<string, unknown> = {};
+		const query: Record<string, unknown> = {};
 
-	if (status) {
-		query.status = status;
-	}
+		if (status) {
+			query.status = status;
+		}
 
-	if (tag) {
-		query.tags = tag;
-	}
+		if (tag) {
+			query.tags = tag;
+		}
 
-	if (categorySlug) {
-		query['category.slug'] = categorySlug;
-	}
+		if (categorySlug) {
+			query['category.slug'] = categorySlug;
+		}
 
-	if (search) {
-		const regex = new RegExp(search, 'i');
-		query.$or = [{ title: regex }, { excerpt: regex }, { content: regex }, { tags: regex }];
-	}
+		if (search) {
+			const regex = new RegExp(search, 'i');
+			query.$or = [{ title: regex }, { excerpt: regex }, { content: regex }, { tags: regex }];
+		}
 
-	const cursor = collection
-		.find(query)
-		.sort({ publishedAt: -1, createdAt: -1 })
-		.skip(skip)
-		.limit(limit);
+		const cursor = collection
+			.find(query)
+			.sort({ publishedAt: -1, createdAt: -1 })
+			.skip(skip)
+			.limit(limit);
 
-	const docs = await cursor.toArray();
-	return docs.map(toDTO);
+		const docs = await cursor.toArray();
+		return docs.map(toDTO);
+	});
 }
 
 export async function getPostBySlug(slug: string, includeDrafts = false): Promise<PostDTO | null> {
-	const collection = await getCollection();
-	const query: Record<string, unknown> = { slug };
-	if (!includeDrafts) {
-		query.status = 'published';
-	}
-	const doc = await collection.findOne(query);
-	return doc ? toDTO(doc) : null;
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(postSlugCacheKey(slug, includeDrafts), ttl, async () => {
+		const collection = await getCollection();
+		const query: Record<string, unknown> = { slug };
+		if (!includeDrafts) {
+			query.status = 'published';
+		}
+		const doc = await collection.findOne(query);
+		return doc ? toDTO(doc) : null;
+	});
 }
 
 export async function getPostById(id: string): Promise<PostDTO | null> {
-	const collection = await getCollection();
-	const _id = new ObjectId(id);
-	const doc = await collection.findOne({ _id });
-	return doc ? toDTO(doc) : null;
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(postIdCacheKey(id), ttl, async () => {
+		const collection = await getCollection();
+		const _id = new ObjectId(id);
+		const doc = await collection.findOne({ _id });
+		return doc ? toDTO(doc) : null;
+	});
 }
 
 export interface UpdatePostInput {
@@ -212,6 +257,9 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Po
 	// No driver MongoDB v6, findOneAndUpdate (sem includeResultMetadata)
 	// já retorna diretamente o documento atualizado ou null.
 	const doc = result as WithId<PostDocument> | null;
+	if (doc) {
+		invalidatePostsCache();
+	}
 	return doc ? toDTO(doc) : null;
 }
 
@@ -224,10 +272,16 @@ export async function deletePost(id: string, soft = true): Promise<boolean> {
 			{ _id },
 			{ $set: { status: 'deleted' as PostStatus, updatedAt: new Date() } },
 		);
+		if (result.matchedCount > 0) {
+			invalidatePostsCache();
+		}
 		return result.matchedCount > 0;
 	}
 
 	const result = await collection.deleteOne({ _id });
+	if (result.deletedCount === 1) {
+		invalidatePostsCache();
+	}
 	return result.deletedCount === 1;
 }
 
@@ -242,57 +296,63 @@ export interface CategoryWithCount {
 }
 
 export async function getTagsWithCounts(): Promise<TagWithCount[]> {
-	const collection = await getCollection();
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(TAGS_COUNTS_CACHE_KEY, ttl, async () => {
+		const collection = await getCollection();
 
-	const pipeline = [
-		{ $match: { status: 'published' as PostStatus } },
-		{ $unwind: '$tags' },
-		{
-			$group: {
-				_id: '$tags',
-				count: { $sum: 1 },
+		const pipeline = [
+			{ $match: { status: 'published' as PostStatus } },
+			{ $unwind: '$tags' },
+			{
+				$group: {
+					_id: '$tags',
+					count: { $sum: 1 },
+				},
 			},
-		},
-		{ $sort: { count: -1, _id: 1 } },
-	];
+			{ $sort: { count: -1, _id: 1 } },
+		];
 
-	const results = await collection.aggregate<{ _id: string; count: number }>(pipeline).toArray();
+		const results = await collection.aggregate<{ _id: string; count: number }>(pipeline).toArray();
 
-	return results.map((r) => ({
-		tag: r._id,
-		count: r.count,
-	}));
+		return results.map((r) => ({
+			tag: r._id,
+			count: r.count,
+		}));
+	});
 }
 
 export async function getCategoriesWithCounts(): Promise<CategoryWithCount[]> {
-	const collection = await getCollection();
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(CATEGORIES_COUNTS_CACHE_KEY, ttl, async () => {
+		const collection = await getCollection();
 
-	const pipeline = [
-		{ $match: { status: 'published' as PostStatus } },
-		{
-			$group: {
-				_id: '$category.slug',
-				name: { $first: '$category.name' },
-				slug: { $first: '$category.slug' },
-				color: { $first: '$category.color' },
-				count: { $sum: 1 },
+		const pipeline = [
+			{ $match: { status: 'published' as PostStatus } },
+			{
+				$group: {
+					_id: '$category.slug',
+					name: { $first: '$category.name' },
+					slug: { $first: '$category.slug' },
+					color: { $first: '$category.color' },
+					count: { $sum: 1 },
+				},
 			},
-		},
-		{ $sort: { count: -1, name: 1 } },
-	];
+			{ $sort: { count: -1, name: 1 } },
+		];
 
-	const results = await collection
-		.aggregate<{ _id: string; name: string; slug: string; color?: string; count: number }>(pipeline)
-		.toArray();
+		const results = await collection
+			.aggregate<{ _id: string; name: string; slug: string; color?: string; count: number }>(pipeline)
+			.toArray();
 
-	return results.map((r) => ({
-		category: {
-			name: r.name,
-			slug: r.slug,
-			color: r.color,
-		},
-		count: r.count,
-	}));
+		return results.map((r) => ({
+			category: {
+				name: r.name,
+				slug: r.slug,
+				color: r.color,
+			},
+			count: r.count,
+		}));
+	});
 }
 
 export async function incrementPostViews(slug: string): Promise<void> {
@@ -304,5 +364,7 @@ export async function incrementPostViews(slug: string): Promise<void> {
 			$set: { updatedAt: new Date() },
 		},
 	);
+	invalidateMemoryCacheKey(postSlugCacheKey(slug, true));
+	invalidateMemoryCacheKey(postSlugCacheKey(slug, false));
 }
 

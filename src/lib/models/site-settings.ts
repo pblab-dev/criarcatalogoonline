@@ -1,5 +1,8 @@
 import { type WithId } from "mongodb";
+import { getMemoryCacheTtlMs, invalidateMemoryCacheKey, memoryCached } from "../memory-cache";
 import { getDb } from "../mongodb";
+
+const SITE_SETTINGS_CACHE_KEY = "site:settings";
 
 export interface SiteSocialLinks {
 	instagram: string;
@@ -69,9 +72,12 @@ function toInput(doc?: WithId<SiteSettingsDocument> | null): SiteSettingsInput {
 }
 
 export async function getSiteSettings(): Promise<SiteSettingsInput> {
-	const collection = await getCollection();
-	const doc = await collection.findOne({ key: "main" });
-	return toInput(doc);
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(SITE_SETTINGS_CACHE_KEY, ttl, async () => {
+		const collection = await getCollection();
+		const doc = await collection.findOne({ key: "main" });
+		return toInput(doc);
+	});
 }
 
 export async function upsertSiteSettings(
@@ -116,6 +122,7 @@ export async function upsertSiteSettings(
 		},
 	);
 
+	invalidateMemoryCacheKey(SITE_SETTINGS_CACHE_KEY);
 	return toInput(result as WithId<SiteSettingsDocument> | null);
 }
 

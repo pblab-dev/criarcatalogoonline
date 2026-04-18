@@ -1,5 +1,8 @@
 import { type WithId } from "mongodb";
+import { getMemoryCacheTtlMs, invalidateMemoryCacheKey, memoryCached } from "../memory-cache";
 import { getDb } from "../mongodb";
+
+const STRUCTURED_DATA_SETTINGS_CACHE_KEY = "structured:data:settings";
 
 export interface StructuredDataSettingsInput {
 	siteUrl: string;
@@ -93,9 +96,12 @@ function toInput(
 }
 
 export async function getStructuredDataSettings(): Promise<StructuredDataSettingsInput> {
-	const collection = await getCollection();
-	const doc = await collection.findOne({ key: "main" });
-	return toInput(doc);
+	const ttl = getMemoryCacheTtlMs();
+	return memoryCached(STRUCTURED_DATA_SETTINGS_CACHE_KEY, ttl, async () => {
+		const collection = await getCollection();
+		const doc = await collection.findOne({ key: "main" });
+		return toInput(doc);
+	});
 }
 
 export async function upsertStructuredDataSettings(
@@ -176,6 +182,7 @@ export async function upsertStructuredDataSettings(
 		},
 	);
 
+	invalidateMemoryCacheKey(STRUCTURED_DATA_SETTINGS_CACHE_KEY);
 	return toInput(result as WithId<StructuredDataSettingsDocument> | null);
 }
 
